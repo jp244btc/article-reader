@@ -1,0 +1,14 @@
+# Virtual environment — recreate with the steps in README.md
+.venv/
+
+# Dedicated Chrome profile for the "Use my logged-in Chrome" engine.
+# Contains cookies and login sessions — NEVER commit this.
+chrome-profile/
+
+# Python cruft
+__pycache__/
+*.pyc
+
+# OS cruft
+Thumbs.db
+Desktop.ini
