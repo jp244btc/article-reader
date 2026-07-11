@@ -74,6 +74,9 @@
 
   .notice { background: var(--chip); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 22px; font-size: 14.5px; }
   .notice.warn { border-color: var(--accent); }
+  .arch-link { display: inline-block; margin-top: 8px; font-weight: 700;
+               color: var(--accent); text-decoration: none; }
+  .arch-link:hover { text-decoration: underline; }
   details { margin-top: 40px; font-size: 13px; color: var(--muted); }
   details summary { cursor: pointer; }
   details ul { padding-left: 18px; }
@@ -128,7 +131,11 @@
     {% endif %}
 
     {% if error %}
-      <div class="notice warn"><strong>Couldn't read that page.</strong><br>{{ error }}</div>
+      <div class="notice warn"><strong>Couldn't read that page.</strong><br>{{ error }}
+        {% if archive_url %}<br>
+        <a class="arch-link" href="{{ archive_url }}" target="_blank" rel="noopener">🗄 Try a frozen copy on archive.today →</a>
+        {% endif %}
+      </div>
     {% endif %}
 
     {% if title %}
@@ -138,14 +145,20 @@
         <span class="chip">{{ chars }} chars</span>
         <div class="toolbar">
           <button class="ghost" onclick="window.print()">🖨 Print / PDF</button>
+          {% if incomplete and archive_url %}<a href="{{ archive_url }}" target="_blank" rel="noopener"><button class="ghost">🗄 archive.today</button></a>{% endif %}
           <a href="{{ url }}" target="_blank" rel="noopener"><button class="ghost">↗ Original</button></a>
         </div>
       </div>
 
-      {% if truncated %}
-      <div class="notice warn">Only a short excerpt was recovered — this site
-        likely sends just a teaser to logged-out visitors. A library login or
-        archive.today may have the full text.</div>
+      {% if incomplete and archive_url %}
+      <div class="notice warn">
+        {% if truncated %}Only a short excerpt was recovered — this site likely
+        sends just a teaser to logged-out visitors.{% else %}This looks like only
+        a partial (subscriber-only) article.{% endif %}
+        Sign in via “Use my logged-in Chrome” above for the full text, or read a
+        complete frozen copy:
+        <a class="arch-link" href="{{ archive_url }}" target="_blank" rel="noopener">🗄 Open on archive.today →</a>
+      </div>
       {% endif %}
 
       <article>

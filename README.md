@@ -85,8 +85,13 @@ If a site sends only a teaser to your (logged-out) browser, the rest of the
 text never reaches your machine, and **no client-side tool can recover it** —
 that's a server-side decision, not an overlay. This tool removes popups from
 content you already received; it does not conjure content you weren't sent.
-For full access to subscriber-only text, use a subscription, a free library
-login, or an archive service.
+For full access to subscriber-only text, use a subscription or a free library
+login.
+
+When a result looks incomplete (a teaser, or nothing at all) the reader offers
+a one-click **"Open on archive.today"** link to the newest archived snapshot of
+that URL, which is frequently complete. It's a shortcut to a frozen public copy
+— the app doesn't scrape archive.today.
 
 ## Project layout
 

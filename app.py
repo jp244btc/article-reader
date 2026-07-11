@@ -62,6 +62,18 @@ HARD_WALL_DOMAINS = {"nytimes.com", "washingtonpost.com"}
 def _needs_real_browser(url):
     host = urlparse(url).netloc.split(":")[0].lower()
     return any(host == d or host.endswith("." + d) for d in HARD_WALL_DOMAINS)
+
+
+# A result on a known-paywalled domain with fewer than this many characters is
+# probably a teaser (even if it cleared MIN_CHARS), so the archive.today link is
+# offered. Full articles run well into the thousands of characters.
+TEASER_SUSPECT_CHARS = 4000
+
+
+def _archive_url(url):
+    """Link to the newest archive.today snapshot of a page (a frozen copy that
+    is often complete when a live logged-out fetch only yields a teaser)."""
+    return "https://archive.ph/newest/" + url
 CHROME_PROFILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chrome-profile")
 
 _CHROME_CANDIDATES = [
@@ -449,8 +461,12 @@ def index():
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
 
+    paywalled = _needs_real_browser(url)
+    base["archive_url"] = _archive_url(url)
+    base["paywalled"] = paywalled
+
     # Reflect auto-engagement in the UI (shows the sign-in guidance notice).
-    if _needs_real_browser(url) and CHROME_EXE and PLAYWRIGHT:
+    if paywalled and CHROME_EXE and PLAYWRIGHT:
         base["use_browser"] = True
 
     try:
@@ -471,6 +487,12 @@ def index():
             **base,
         )
 
+    # Offer the archive.today copy when the result looks incomplete: either it
+    # fell short of MIN_CHARS, or it's a known paywall site and short enough to
+    # be a teaser.
+    incomplete = best["chars"] < MIN_CHARS or (
+        paywalled and best["chars"] < TEASER_SUSPECT_CHARS
+    )
     content = _clean_and_absolutize(best["content"], url)
     return render_template(
         "index.html",
@@ -480,6 +502,7 @@ def index():
         method=best["method"],
         chars=best["chars"],
         truncated=best["chars"] < MIN_CHARS,
+        incomplete=incomplete,
         host=urlparse(url).netloc,
         attempts=attempts,
         **base,
