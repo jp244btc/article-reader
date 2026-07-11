@@ -4,9 +4,10 @@ A small, self-hosted web app: paste an article URL, get back a clean,
 popup-free, reader-mode version you can actually read (and print / save as
 PDF). No accounts, no cloud — it runs entirely on your own machine.
 
-Built to deal with news sites (New York Times, Daily Mail, and similar) whose
-subscribe/consent overlays sit on top of article text that is already loaded
-in the page.
+Built to deal with news sites (New York Times, Washington Post, Daily Mail,
+and similar) whose subscribe/consent overlays sit on top of article text that
+is already loaded in the page — and sites that go further and block automated
+browsers entirely.
 
 ## Install (Windows)
 
@@ -55,14 +56,20 @@ method won.
 
 ### "Use my logged-in Chrome" mode
 
-Some sites (notably the **New York Times**) don't just paywall — they serve
-automated browsers an empty bot-challenge page, so none of the fast tiers ever
-see the article. Ticking **Use my logged-in Chrome** drives a *real* Chrome
-window (with its own dedicated profile, stored in `chrome-profile/`, separate
-from your everyday browser) that passes the challenge.
+Some sites don't just paywall — they refuse automated browsers outright. The
+**New York Times** serves them an empty bot-challenge page; the **Washington
+Post** resets the connection at the network level. For these, the app drives a
+*real* Chrome window (with its own dedicated profile, stored in
+`chrome-profile/`, separate from your everyday browser) that passes the
+challenge.
+
+This engine is **engaged automatically** for known bot-walled domains (NYT,
+WaPo) — the doomed fast tiers are skipped entirely, which also makes those
+sites much faster. For any other site that misbehaves, tick the
+**Use my logged-in Chrome** box to force it.
 
 - Logged out, you'll get whatever the site gives free visitors — for the NYT
-  that's a teaser of the first few paragraphs.
+  that's the first few paragraphs; the Washington Post sends only about one.
 - Sign in **once** in that Chrome window (a subscription, a free account, or
   your library's news-site access) and the login persists; after that the
   reader shows whatever your own account is entitled to see.

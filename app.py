@@ -52,6 +52,16 @@ DESKTOP_UA = (
 
 MIN_CHARS = 1200          # below this, try the next (heavier) tier
 DEBUG_PORT = 9222         # remote-debugging port for the "My Chrome" engine
+
+# Domains that block automated browsers at the network level (bot walls).
+# Plain HTTP and headless fetches are dead on arrival there — the real-Chrome
+# engine is engaged automatically and the doomed tiers are skipped.
+HARD_WALL_DOMAINS = {"nytimes.com", "washingtonpost.com"}
+
+
+def _needs_real_browser(url):
+    host = urlparse(url).netloc.split(":")[0].lower()
+    return any(host == d or host.endswith("." + d) for d in HARD_WALL_DOMAINS)
 CHROME_PROFILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chrome-profile")
 
 _CHROME_CANDIDATES = [
@@ -74,14 +84,22 @@ STRIP_JS = r"""() => {
     '#onetrust-consent-sdk', '.qc-cmp2-container', '.fc-consent-root',
     'div[role="dialog"]', '.modal-backdrop', '.tp-modal', '.tp-backdrop'
   ];
-  selectors.forEach(s => document.querySelectorAll(s).forEach(el => el.remove()));
+  // Never remove an element that WRAPS real article content — some sites
+  // (e.g. Washington Post) nest the story inside paywall-named containers.
+  const wrapsContent = el =>
+    el.querySelector('article, main') || el.querySelectorAll('p').length > 8;
+
+  selectors.forEach(s => document.querySelectorAll(s).forEach(el => {
+    if (!wrapsContent(el)) el.remove();
+  }));
 
   document.querySelectorAll('body *').forEach(el => {
     const cs = getComputedStyle(el);
     if (cs.position === 'fixed' || cs.position === 'sticky') {
       const z = parseInt(cs.zIndex) || 0;
       const r = el.getBoundingClientRect();
-      if (z >= 100 || r.height > window.innerHeight * 0.6) el.remove();
+      if ((z >= 100 || r.height > window.innerHeight * 0.6) && !wrapsContent(el))
+        el.remove();
     }
   });
 
@@ -113,6 +131,27 @@ def _text_len(html):
 def _readability(html):
     doc = Document(html)
     return doc.short_title(), doc.summary(html_partial=True)
+
+
+def _container_fallback(html):
+    """Extract the largest <article>/<main> region directly.
+
+    Readability sometimes under-extracts on heavily-templated pages (e.g.
+    Washington Post); the semantic container is a more generous cut.
+    Returns (content_html, text_len) or (None, 0).
+    """
+    soup = BeautifulSoup(html, "lxml")
+    for tag in soup(["script", "style", "noscript", "nav", "header",
+                     "footer", "aside", "button", "form"]):
+        tag.decompose()
+    best_el, best_len = None, 0
+    for el in soup.select("article, main, [role='main']"):
+        n = len(el.get_text(strip=True))
+        if n > best_len:
+            best_el, best_len = el, n
+    if best_el is None:
+        return None, 0
+    return str(best_el), best_len
 
 
 def _clean_and_absolutize(content_html, base_url):
@@ -324,10 +363,21 @@ def extract(url, use_browser=False):
         nonlocal best
         title, content = _readability(html)
         chars = _text_len(content)
+        # If readability under-extracted, fall back to the semantic container.
+        if chars < MIN_CHARS:
+            alt, alt_len = _container_fallback(html)
+            if alt and alt_len > chars * 1.3:
+                content, chars = alt, alt_len
+                method += " (container)"
         attempts.append((method, f"{chars} chars"))
         if best is None or chars > best["chars"]:
             best = {"method": method, "title": title, "content": content, "chars": chars}
         return chars
+
+    # Sites with network-level bot walls need the real-Chrome engine; engage it
+    # automatically and don't waste time on tiers that are dead on arrival.
+    hard_wall = _needs_real_browser(url)
+    use_browser = use_browser or hard_wall
 
     # --- "My Chrome" engine first, if requested ---
     if use_browser:
@@ -343,28 +393,34 @@ def extract(url, use_browser=False):
             if best and best["chars"] >= MIN_CHARS:
                 return best, attempts
 
-    # --- Fast engine, tier 1: plain HTTP ---
-    try:
-        consider("Direct fetch (no JavaScript)", _fetch_http(url))
-    except Exception as e:
-        attempts.append(("Direct fetch", f"error: {e}"))
-    need_more = best is None or best["chars"] < MIN_CHARS
-
-    # --- tier 2: headless browser, JavaScript disabled ---
-    if need_more and PLAYWRIGHT:
+    if hard_wall:
+        # Plain HTTP and headless fetches are connection-blocked on these
+        # domains (timeouts / HTTP2 resets) — skip straight to Wayback.
+        attempts.append(("Fast tiers", "skipped: this domain bot-walls automated fetches"))
+        need_more = best is None or best["chars"] < MIN_CHARS
+    else:
+        # --- Fast engine, tier 1: plain HTTP ---
         try:
-            consider("Browser, JavaScript disabled", _fetch_headless(url, strip=False))
+            consider("Direct fetch (no JavaScript)", _fetch_http(url))
         except Exception as e:
-            attempts.append(("Browser (JS off)", f"error: {e}"))
+            attempts.append(("Direct fetch", f"error: {e}"))
         need_more = best is None or best["chars"] < MIN_CHARS
 
-    # --- tier 3: headless browser, overlay removal ---
-    if need_more and PLAYWRIGHT:
-        try:
-            consider("Browser + overlay removal", _fetch_headless(url, strip=True))
-        except Exception as e:
-            attempts.append(("Browser (overlay strip)", f"error: {e}"))
-        need_more = best is None or best["chars"] < MIN_CHARS
+        # --- tier 2: headless browser, JavaScript disabled ---
+        if need_more and PLAYWRIGHT:
+            try:
+                consider("Browser, JavaScript disabled", _fetch_headless(url, strip=False))
+            except Exception as e:
+                attempts.append(("Browser (JS off)", f"error: {e}"))
+            need_more = best is None or best["chars"] < MIN_CHARS
+
+        # --- tier 3: headless browser, overlay removal ---
+        if need_more and PLAYWRIGHT:
+            try:
+                consider("Browser + overlay removal", _fetch_headless(url, strip=True))
+            except Exception as e:
+                attempts.append(("Browser (overlay strip)", f"error: {e}"))
+            need_more = best is None or best["chars"] < MIN_CHARS
 
     # --- tier 4: Wayback Machine archive ---
     if need_more:
@@ -392,6 +448,10 @@ def index():
 
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
+
+    # Reflect auto-engagement in the UI (shows the sign-in guidance notice).
+    if _needs_real_browser(url) and CHROME_EXE and PLAYWRIGHT:
+        base["use_browser"] = True
 
     try:
         best, attempts = extract(url, use_browser=use_browser)

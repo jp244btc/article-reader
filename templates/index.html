@@ -97,9 +97,9 @@
         <button type="submit">Read</button>
       </div>
       {% if chrome %}
-      <label class="opt" title="Drives a real Chrome you can log into — needed for the New York Times and other sites that block bots.">
+      <label class="opt" title="Drives a real Chrome you can log into — needed for sites that block automated browsers. Engaged automatically for the NYT and Washington Post.">
         <input type="checkbox" name="use_browser" value="1" {% if use_browser %}checked{% endif %}>
-        Use my logged-in Chrome <span class="opt-hint">(for NYT &amp; paywalled sites)</span>
+        Use my logged-in Chrome <span class="opt-hint">(automatic for NYT &amp; Washington Post)</span>
       </label>
       {% endif %}
     </form>
@@ -121,9 +121,10 @@
   <main>
     {% if use_browser %}
       <div class="notice">🌐 <strong>Logged-in Chrome mode.</strong> A dedicated Chrome
-      window opens the first time. For full New York Times articles, sign in there once
-      (a subscription, a free NYT account, or your library’s NYT access) — it stays
-      logged in for next time. Without a login you’ll get only the free teaser.</div>
+      window opens the first time. For full articles on subscriber sites (New York
+      Times, Washington Post…), sign in there once — a subscription, a free account,
+      or your library’s news access — and it stays logged in for next time. Without
+      a login you’ll get only the free teaser the site sends everyone.</div>
     {% endif %}
 
     {% if error %}
