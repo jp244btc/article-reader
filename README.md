@@ -9,33 +9,38 @@ and similar) whose subscribe/consent overlays sit on top of article text that
 is already loaded in the page — and sites that go further and block automated
 browsers entirely.
 
-## Install (Windows)
+## Install & run (Windows)
 
-Requirements: [Python 3.12+](https://www.python.org/downloads/) and,
-optionally, Google Chrome (only needed for the "Use my logged-in Chrome"
-mode described below).
+Requirements: [Python 3.12+](https://www.python.org/downloads/) (tick **"Add
+python.exe to PATH"** in the installer) and, optionally, Google Chrome (only
+needed for the "Use my logged-in Chrome" mode described below).
+
+Get the code either way:
+
+- `git clone https://github.com/jp244btc/article-reader.git`, **or**
+- download and extract the source zip from the
+  [latest release](https://github.com/jp244btc/article-reader/releases).
+
+Then just double-click **`run.bat`**. On first run it sets everything up
+automatically — creates a private Python environment, installs the pinned
+dependencies, and downloads a headless Chromium (~130 MB) for the fallback
+extraction tiers. That takes a few minutes once; afterwards it starts
+instantly.
+
+Your browser opens to `http://127.0.0.1:5000`. Paste a URL, click **Read**.
+Press **Ctrl+C** in the terminal (or close it) to stop the server.
+
+<details>
+<summary>Manual setup, if you prefer</summary>
 
 ```powershell
-git clone https://github.com/jp244btc/article-reader.git
 cd article-reader
 py -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 .venv\Scripts\python.exe -m playwright install chromium
-```
-
-The last step downloads a private headless Chromium (~130 MB) used by the
-fallback extraction tiers. Skip it if you only want basic HTTP mode.
-
-## Run
-
-Double-click **`run.bat`**, or:
-
-```powershell
 .venv\Scripts\python.exe app.py
 ```
-
-Your browser opens to `http://127.0.0.1:5000`. Paste a URL, click **Read**.
-Press **Ctrl+C** in the terminal to stop the server.
+</details>
 
 ## How it captures the article
 
